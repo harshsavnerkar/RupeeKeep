@@ -3,25 +3,23 @@ import './style.css'
 /**
  * DATABASE CONFIGURATION
  * ----------------------
- * Go to https://console.firebase.google.com/
- * Create a project, then add a "Web" app.
- * Copy the config object below.
+ * Keys are now securely loaded from the .env file.
  */
 const firebaseConfig = {
-  apiKey: "AIzaSyCqTU02PN2V3NgYb6Ou4QCkCV8JwpkpMA0",
-  authDomain: "rupeekeep.firebaseapp.com",
-  projectId: "rupeekeep",
-  storageBucket: "rupeekeep.firebasestorage.app",
-  messagingSenderId: "679679195385",
-  appId: "1:679679195385:web:a7044c1516ec258a098a28",
-  measurementId: "G-LJ2KTKNB2C"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 // Initialize Firebase (if keys are provided)
 let db = null;
 let auth = null;
 
-if (firebaseConfig.apiKey !== "YOUR_API_KEY") {
+if (firebaseConfig.apiKey) {
   firebase.initializeApp(firebaseConfig);
   db = firebase.firestore();
   auth = firebase.auth();
@@ -56,7 +54,6 @@ async function init() {
   
   if (currentUser) {
     showView('dashboard');
-    // If DB is connected, fetch fresh data
     if (db) await syncWithDB();
     updateDashboard();
   } else {
@@ -69,22 +66,30 @@ async function init() {
 
 async function syncWithDB() {
   if (!db || !currentUser) return;
-  const doc = await db.collection('savings').doc(currentUser.username).get();
-  if (doc.exists) {
-    const data = doc.data();
-    savingsData[currentUser.username] = data.entries || {};
-    userMilestones = data.milestones || {};
-    localStorage.setItem('keeper_savings', JSON.stringify(savingsData));
-    localStorage.setItem('keeper_milestones', JSON.stringify(userMilestones));
+  try {
+    const doc = await db.collection('savings').doc(currentUser.username).get();
+    if (doc.exists) {
+      const data = doc.data();
+      savingsData[currentUser.username] = data.entries || {};
+      userMilestones = data.milestones || {};
+      localStorage.setItem('keeper_savings', JSON.stringify(savingsData));
+      localStorage.setItem('keeper_milestones', JSON.stringify(userMilestones));
+    }
+  } catch (e) {
+    console.error("DB Sync Error:", e);
   }
 }
 
 async function saveToDB() {
   if (!db || !currentUser) return;
-  await db.collection('savings').doc(currentUser.username).set({
-    entries: savingsData[currentUser.username],
-    milestones: userMilestones
-  });
+  try {
+    await db.collection('savings').doc(currentUser.username).set({
+      entries: savingsData[currentUser.username],
+      milestones: userMilestones
+    });
+  } catch (e) {
+    console.error("DB Save Error:", e);
+  }
 }
 
 function showView(viewName) {
@@ -104,9 +109,7 @@ function triggerCelebration() {
 
   const interval = setInterval(function() {
     const timeLeft = animationEnd - Date.now();
-
     if (timeLeft <= 0) return clearInterval(interval);
-
     const particleCount = 50 * (timeLeft / duration);
     confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } }));
     confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } }));
@@ -128,7 +131,6 @@ function setupEventListeners() {
     const user = document.getElementById('username').value;
     const pass = document.getElementById('password').value;
     
-    // Check Local first, then DB (if enabled)
     const accounts = JSON.parse(localStorage.getItem('keeper_accounts')) || {};
     if (accounts[user] && accounts[user].password === pass) {
       currentUser = { username: user };
@@ -220,7 +222,6 @@ function getNextGoal(monthlyTotal) {
 function checkGoalReached(username) {
   const now = new Date();
   const monthlyTotal = getMonthlyTotal(username, now);
-  
   const year = now.getFullYear();
   const month = now.getMonth() + 1;
   const milestoneKey = `${username}_${year}_${month}`;
@@ -231,7 +232,6 @@ function checkGoalReached(username) {
   if (currentMilestone > lastGoal) {
     userMilestones[milestoneKey] = currentMilestone;
     localStorage.setItem('keeper_milestones', JSON.stringify(userMilestones));
-    
     setTimeout(() => {
       triggerCelebration();
       alert(`🎉 Monthly Milestone Reached! You saved ₹${currentMilestone} in ${now.toLocaleString('default', { month: 'long' })}!`);
@@ -242,20 +242,15 @@ function checkGoalReached(username) {
 // --- Dashboard Logic ---
 function updateDashboard() {
   if (!currentUser) return;
-  
   document.getElementById('user-display').innerText = currentUser.username;
-  
   const monthlyTotal = getMonthlyTotal(currentUser.username, viewDate);
   const monthName = viewDate.toLocaleString('default', { month: 'long' });
-  
   document.getElementById('total-savings').innerText = `₹${monthlyTotal.toLocaleString()}`;
   document.querySelector('#dashboard-view .glass-card p').innerText = `Savings in ${monthName}`;
-  
   const nextGoal = getNextGoal(monthlyTotal);
   const prevGoal = Math.max(0, nextGoal - 500);
   const progressInLevel = monthlyTotal - prevGoal;
   const progress = Math.min((progressInLevel / 500) * 100, 100);
-  
   document.getElementById('goal-progress').style.width = `${progress}%`;
   document.getElementById('goal-text').innerText = `Goal: ₹${nextGoal.toLocaleString()}`;
 }
@@ -265,46 +260,30 @@ function renderCalendar() {
   const calendarBody = document.getElementById('calendar-body');
   if (!calendarBody) return;
   calendarBody.innerHTML = '';
-  
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
-  
   const today = new Date();
   const todayYear = today.getFullYear();
   const todayMonth = today.getMonth();
   const todayDay = today.getDate();
-  
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   document.getElementById('month-display').innerText = `${monthNames[month]} ${year}`;
-
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-
   for (let i = 0; i < firstDay; i++) {
     const empty = document.createElement('div');
     calendarBody.appendChild(empty);
   }
-
   const userSavings = currentUser ? (savingsData[currentUser.username] || {}) : {};
-
   for (let day = 1; day <= daysInMonth; day++) {
     const dayEl = document.createElement('div');
     dayEl.classList.add('calendar-day');
     dayEl.innerText = day;
-
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    
-    if (day === todayDay && month === todayMonth && year === todayYear) {
-      dayEl.classList.add('today');
-    }
-    
-    if (userSavings[dateStr]) {
-      dayEl.classList.add('saved');
-    }
-
+    if (day === todayDay && month === todayMonth && year === todayYear) dayEl.classList.add('today');
+    if (userSavings[dateStr]) dayEl.classList.add('saved');
     const currentIterDate = new Date(year, month, day);
     const isFuture = currentIterDate > today;
-
     if (isFuture) {
       dayEl.classList.add('disabled');
     } else {
@@ -315,7 +294,6 @@ function renderCalendar() {
         modal.container.style.display = 'flex';
       };
     }
-
     calendarBody.appendChild(dayEl);
   }
 }
