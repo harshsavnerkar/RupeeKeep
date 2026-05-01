@@ -75,4 +75,4 @@ Feel free to fork this project and submit pull requests for any improvements or 
 This project is licensed under the MIT License.
 
 ---
-Built with ❤️ for better financial habits.
+
