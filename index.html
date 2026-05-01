@@ -16,10 +16,22 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   </head>
   <body>
+    <!-- Splash Screen -->
+    <div id="splash" class="splash-screen">
+      <img src="/logo.png" alt="RupeeKeep Logo" class="logo-main">
+      <div class="loading-bar">
+        <div class="loading-fill"></div>
+      </div>
+      <p style="margin-top: 15px; font-size: 0.9rem; color: var(--text-secondary);">Securing your future...</p>
+    </div>
+
     <div id="app">
       <!-- Auth View -->
       <section id="auth-view" class="view active">
-        <div class="glass-card" style="margin-top: 20vh;">
+        <div class="glass-card" style="margin-top: 15vh;">
+          <div style="text-align: center; margin-bottom: 20px;">
+            <img src="/logo.png" alt="Logo" style="width: 80px; height: 80px; filter: drop-shadow(0 0 10px rgba(99,102,241,0.3));">
+          </div>
           <h1 style="text-align: center;">RupeeKeep</h1>
           <p style="text-align: center; margin-bottom: 2rem;">Save today, thrive tomorrow.</p>
           
@@ -55,12 +67,14 @@
         </div>
       </section>
 
-      <!-- Dashboard View -->
       <section id="dashboard-view" class="view">
         <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
-          <div>
-            <p style="margin-bottom: 0;">Welcome back,</p>
-            <h2 id="user-display" style="margin-bottom: 0;">User</h2>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <img src="/logo.png" alt="Logo" style="width: 40px; height: 40px;">
+            <div>
+              <p style="margin-bottom: 0; font-size: 0.8rem;">Welcome back,</p>
+              <h2 id="user-display" style="margin-bottom: 0; font-size: 1.2rem;">User</h2>
+            </div>
           </div>
           <button id="logout-btn" class="btn" style="background: var(--glass-bg); padding: 8px;"><i data-lucide="log-out"></i></button>
         </header>

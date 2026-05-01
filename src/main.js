@@ -62,6 +62,15 @@ async function init() {
 
   setupEventListeners();
   renderCalendar();
+
+  // Splash Screen Fade Out
+  setTimeout(() => {
+    const splash = document.getElementById('splash');
+    const app = document.getElementById('app');
+    
+    splash.classList.add('hidden');
+    app.classList.add('loaded');
+  }, 2200); // Wait for loading bar animation
 }
 
 async function syncWithDB() {
