@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>RupeeKeep - Daily Savings Tracker</title>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Confetti Library -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  </head>
+  <body>
+    <div id="app">
+      <!-- Auth View -->
+      <section id="auth-view" class="view active">
+        <div class="glass-card" style="margin-top: 20vh;">
+          <h1 style="text-align: center;">RupeeKeep</h1>
+          <p style="text-align: center; margin-bottom: 2rem;">Save today, thrive tomorrow.</p>
+          
+          <div id="login-form">
+            <div class="input-group">
+              <label>Username</label>
+              <input type="text" id="username" placeholder="Enter username">
+            </div>
+            <div class="input-group">
+              <label>Password</label>
+              <input type="password" id="password" placeholder="••••••••">
+            </div>
+            <button class="btn btn-primary btn-block" id="login-btn">Login</button>
+            <p style="text-align: center; margin-top: 1rem; font-size: 0.8rem;">
+              Don't have an account? <span id="show-register" style="color: var(--primary); cursor: pointer;">Register</span>
+            </p>
+          </div>
+
+          <div id="register-form" style="display: none;">
+            <div class="input-group">
+              <label>Choose Username</label>
+              <input type="text" id="reg-username" placeholder="Pick a username">
+            </div>
+            <div class="input-group">
+              <label>Set Password</label>
+              <input type="password" id="reg-password" placeholder="••••••••">
+            </div>
+            <button class="btn btn-primary btn-block" id="register-btn">Create Account</button>
+            <p style="text-align: center; margin-top: 1rem; font-size: 0.8rem;">
+              Already have an account? <span id="show-login" style="color: var(--primary); cursor: pointer;">Login</span>
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Dashboard View -->
+      <section id="dashboard-view" class="view">
+        <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+          <div>
+            <p style="margin-bottom: 0;">Welcome back,</p>
+            <h2 id="user-display" style="margin-bottom: 0;">User</h2>
+          </div>
+          <button id="logout-btn" class="btn" style="background: var(--glass-bg); padding: 8px;"><i data-lucide="log-out"></i></button>
+        </header>
+
+        <div class="glass-card" style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(244, 63, 94, 0.2));">
+          <p style="color: var(--text-primary);">Total Savings</p>
+          <h1 id="total-savings">₹0</h1>
+          <div class="progress-container">
+            <div id="goal-progress" class="progress-bar"></div>
+          </div>
+          <p id="goal-text" style="font-size: 0.8rem; margin-top: 5px;">Goal: ₹500</p>
+        </div>
+
+        <div class="glass-card">
+          <h3 style="margin-bottom: 1rem;">Add Today's Savings</h3>
+          <div style="display: flex; gap: 10px;">
+            <input type="number" id="savings-amount" placeholder="Enter amount in ₹">
+            <button id="save-btn" class="btn btn-primary">Save</button>
+          </div>
+        </div>
+
+        <div class="glass-card">
+          <div class="calendar-header">
+            <h3>Savings Calendar</h3>
+            <div style="display: flex; align-items: center; gap: 15px;">
+              <button id="prev-month" class="btn" style="background: var(--glass-bg); padding: 5px;"><i data-lucide="chevron-left"></i></button>
+              <div id="month-display" style="font-weight: 600; min-width: 100px; text-align: center;">May 2026</div>
+              <button id="next-month" class="btn" style="background: var(--glass-bg); padding: 5px;"><i data-lucide="chevron-right"></i></button>
+            </div>
+          </div>
+          <div class="calendar-grid" id="calendar-body">
+            <!-- Days will be injected here -->
+          </div>
+        </div>
+      </section>
+
+      <!-- Date Detail Overlay (Simple Modal) -->
+      <div id="date-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); z-index: 100; align-items: center; justify-content: center;">
+        <div class="glass-card" style="width: 90%; max-width: 350px;">
+          <h2 id="modal-date">Date</h2>
+          <p>Savings for this day:</p>
+          <h1 id="modal-amount" style="margin: 1rem 0;">₹0</h1>
+          <button id="close-modal" class="btn btn-block" style="background: var(--glass-bg);">Close</button>
+        </div>
+      </div>
+
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
