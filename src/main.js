@@ -70,7 +70,12 @@ async function init() {
     
     splash.classList.add('hidden');
     app.classList.add('loaded');
-  }, 2200); // Wait for loading bar animation
+    
+    // Completely remove from layout after fade
+    setTimeout(() => {
+      splash.style.display = 'none';
+    }, 800);
+  }, 2200); 
 }
 
 async function syncWithDB() {
