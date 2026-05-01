@@ -2,8 +2,6 @@ import './style.css'
 
 /**
  * DATABASE CONFIGURATION
- * ----------------------
- * Keys are now securely loaded from the .env file.
  */
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -15,14 +13,11 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
-// Initialize Firebase (if keys are provided)
+// Initialize Firebase
 let db = null;
-let auth = null;
-
 if (firebaseConfig.apiKey) {
   firebase.initializeApp(firebaseConfig);
   db = firebase.firestore();
-  auth = firebase.auth();
 }
 
 // --- State Management ---
@@ -67,15 +62,12 @@ async function init() {
   setTimeout(() => {
     const splash = document.getElementById('splash');
     const app = document.getElementById('app');
-    
-    splash.classList.add('hidden');
-    app.classList.add('loaded');
-    
-    // Completely remove from layout after fade
-    setTimeout(() => {
-      splash.style.display = 'none';
-    }, 800);
-  }, 2200); 
+    if (splash) {
+      splash.classList.add('hidden');
+      if (app) app.classList.add('loaded');
+      setTimeout(() => { splash.style.display = 'none'; }, 800);
+    }
+  }, 2200);
 }
 
 async function syncWithDB() {
@@ -116,11 +108,7 @@ function triggerCelebration() {
   const duration = 3 * 1000;
   const animationEnd = Date.now() + duration;
   const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 1000 };
-
-  function randomInRange(min, max) {
-    return Math.random() * (max - min) + min;
-  }
-
+  function randomInRange(min, max) { return Math.random() * (max - min) + min; }
   const interval = setInterval(function() {
     const timeLeft = animationEnd - Date.now();
     if (timeLeft <= 0) return clearInterval(interval);
@@ -144,34 +132,86 @@ function setupEventListeners() {
   document.getElementById('login-btn').onclick = async () => {
     const user = document.getElementById('username').value;
     const pass = document.getElementById('password').value;
-    
-    const accounts = JSON.parse(localStorage.getItem('keeper_accounts')) || {};
-    if (accounts[user] && accounts[user].password === pass) {
-      currentUser = { username: user };
-      localStorage.setItem('keeper_user', JSON.stringify(currentUser));
-      if (db) await syncWithDB();
-      showView('dashboard');
-      updateDashboard();
-      renderCalendar();
-    } else {
-      alert('Invalid credentials');
+    if (!user || !pass) return alert('Fill all fields');
+
+    const loginBtn = document.getElementById('login-btn');
+    loginBtn.innerText = 'Logging in...';
+    loginBtn.disabled = true;
+
+    try {
+      let authenticated = false;
+      
+      // 1. Check Database (Global Account)
+      if (db) {
+        const doc = await db.collection('accounts').doc(user).get();
+        if (doc.exists && doc.data().password === pass) {
+          authenticated = true;
+        }
+      }
+
+      // 2. Fallback to Local (Only for offline testing)
+      if (!authenticated) {
+        const localAccounts = JSON.parse(localStorage.getItem('keeper_accounts')) || {};
+        if (localAccounts[user] && localAccounts[user].password === pass) {
+          authenticated = true;
+        }
+      }
+
+      if (authenticated) {
+        currentUser = { username: user };
+        localStorage.setItem('keeper_user', JSON.stringify(currentUser));
+        if (db) await syncWithDB();
+        showView('dashboard');
+        updateDashboard();
+        renderCalendar();
+      } else {
+        alert('Invalid credentials. If you registered on another device, make sure your Database is connected!');
+      }
+    } catch (e) {
+      console.error("Login Error:", e);
+      alert("Login failed. Check your internet or Database settings.");
+    } finally {
+      loginBtn.innerText = 'Login';
+      loginBtn.disabled = false;
     }
   };
 
-  document.getElementById('register-btn').onclick = () => {
+  document.getElementById('register-btn').onclick = async () => {
     const user = document.getElementById('reg-username').value;
     const pass = document.getElementById('reg-password').value;
-    
     if (!user || !pass) return alert('Fill all fields');
-    
-    const accounts = JSON.parse(localStorage.getItem('keeper_accounts')) || {};
-    if (accounts[user]) return alert('User already exists');
-    
-    accounts[user] = { password: pass };
-    localStorage.setItem('keeper_accounts', JSON.stringify(accounts));
-    alert('Account created! Please login.');
-    forms.register.style.display = 'none';
-    forms.login.style.display = 'block';
+
+    const regBtn = document.getElementById('register-btn');
+    regBtn.innerText = 'Creating account...';
+    regBtn.disabled = true;
+
+    try {
+      // 1. Check if exists in DB
+      if (db) {
+        const doc = await db.collection('accounts').doc(user).get();
+        if (doc.exists) {
+          alert('Username already taken in the cloud');
+          return;
+        }
+        // Save to DB
+        await db.collection('accounts').doc(user).set({ password: pass });
+      }
+
+      // 2. Always save to Local as well
+      const localAccounts = JSON.parse(localStorage.getItem('keeper_accounts')) || {};
+      localAccounts[user] = { password: pass };
+      localStorage.setItem('keeper_accounts', JSON.stringify(localAccounts));
+
+      alert('Account created successfully! You can now login.');
+      forms.register.style.display = 'none';
+      forms.login.style.display = 'block';
+    } catch (e) {
+      console.error("Registration Error:", e);
+      alert("Registration failed. Make sure your Firestore Database is enabled!");
+    } finally {
+      regBtn.innerText = 'Create Account';
+      regBtn.disabled = false;
+    }
   };
 
   document.getElementById('logout-btn').onclick = () => {
@@ -195,19 +235,14 @@ function setupEventListeners() {
   document.getElementById('save-btn').onclick = async () => {
     const amount = parseFloat(document.getElementById('savings-amount').value);
     if (isNaN(amount) || amount <= 0) return alert('Enter a valid amount');
-    
     const today = new Date().toISOString().split('T')[0];
     const userSavings = savingsData[currentUser.username] || {};
     userSavings[today] = (userSavings[today] || 0) + amount;
-    
     savingsData[currentUser.username] = userSavings;
     localStorage.setItem('keeper_savings', JSON.stringify(savingsData));
-    
     document.getElementById('savings-amount').value = '';
-    
     checkGoalReached(currentUser.username);
     if (db) await saveToDB();
-    
     updateDashboard();
     renderCalendar();
   };
@@ -223,26 +258,17 @@ function getMonthlyTotal(username, date) {
   const year = date.getFullYear();
   const month = date.getMonth() + 1;
   const prefix = `${year}-${String(month).padStart(2, '0')}`;
-  
-  return Object.keys(userSavings)
-    .filter(d => d.startsWith(prefix))
-    .reduce((sum, d) => sum + userSavings[d], 0);
+  return Object.keys(userSavings).filter(d => d.startsWith(prefix)).reduce((sum, d) => sum + userSavings[d], 0);
 }
 
-function getNextGoal(monthlyTotal) {
-  return Math.ceil((monthlyTotal + 1) / 500) * 500 || 500;
-}
+function getNextGoal(monthlyTotal) { return Math.ceil((monthlyTotal + 1) / 500) * 500 || 500; }
 
 function checkGoalReached(username) {
   const now = new Date();
   const monthlyTotal = getMonthlyTotal(username, now);
-  const year = now.getFullYear();
-  const month = now.getMonth() + 1;
-  const milestoneKey = `${username}_${year}_${month}`;
-  
+  const milestoneKey = `${username}_${now.getFullYear()}_${now.getMonth() + 1}`;
   const lastGoal = userMilestones[milestoneKey] || 0;
   const currentMilestone = Math.floor(monthlyTotal / 500) * 500;
-  
   if (currentMilestone > lastGoal) {
     userMilestones[milestoneKey] = currentMilestone;
     localStorage.setItem('keeper_milestones', JSON.stringify(userMilestones));
@@ -265,8 +291,10 @@ function updateDashboard() {
   const prevGoal = Math.max(0, nextGoal - 500);
   const progressInLevel = monthlyTotal - prevGoal;
   const progress = Math.min((progressInLevel / 500) * 100, 100);
-  document.getElementById('goal-progress').style.width = `${progress}%`;
-  document.getElementById('goal-text').innerText = `Goal: ₹${nextGoal.toLocaleString()}`;
+  const progressBar = document.getElementById('goal-progress');
+  if (progressBar) progressBar.style.width = `${progress}%`;
+  const goalText = document.getElementById('goal-text');
+  if (goalText) goalText.innerText = `Goal: ₹${nextGoal.toLocaleString()}`;
 }
 
 // --- Calendar Logic ---
@@ -277,28 +305,21 @@ function renderCalendar() {
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
   const today = new Date();
-  const todayYear = today.getFullYear();
-  const todayMonth = today.getMonth();
-  const todayDay = today.getDate();
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-  document.getElementById('month-display').innerText = `${monthNames[month]} ${year}`;
+  const display = document.getElementById('month-display');
+  if (display) display.innerText = `${monthNames[month]} ${year}`;
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  for (let i = 0; i < firstDay; i++) {
-    const empty = document.createElement('div');
-    calendarBody.appendChild(empty);
-  }
+  for (let i = 0; i < firstDay; i++) { calendarBody.appendChild(document.createElement('div')); }
   const userSavings = currentUser ? (savingsData[currentUser.username] || {}) : {};
   for (let day = 1; day <= daysInMonth; day++) {
     const dayEl = document.createElement('div');
     dayEl.classList.add('calendar-day');
     dayEl.innerText = day;
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    if (day === todayDay && month === todayMonth && year === todayYear) dayEl.classList.add('today');
+    if (day === today.getDate() && month === today.getMonth() && year === today.getFullYear()) dayEl.classList.add('today');
     if (userSavings[dateStr]) dayEl.classList.add('saved');
-    const currentIterDate = new Date(year, month, day);
-    const isFuture = currentIterDate > today;
-    if (isFuture) {
+    if (new Date(year, month, day) > today) {
       dayEl.classList.add('disabled');
     } else {
       dayEl.onclick = () => {
